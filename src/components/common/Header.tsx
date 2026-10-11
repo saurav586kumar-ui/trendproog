@@ -15,7 +15,9 @@ import {
   LogOut,
   Bell,
   Scale,
-  MessageSquare
+  MessageSquare,
+  Mic,
+  Sparkles
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
@@ -25,9 +27,10 @@ import { Product } from '../../types';
 interface HeaderProps {
   onNavigate: (route: string, params?: Record<string, any>) => void;
   currentRoute: string;
+  onOpenVoiceAssistant?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onNavigate, currentRoute }) => {
+export const Header: React.FC<HeaderProps> = ({ onNavigate, currentRoute, onOpenVoiceAssistant }) => {
   const { currentUser, userProfile, isAdmin, signInWithGoogle, signOut } = useAuth();
   const { cartCount, wishlistCount, compareList, subtotal } = useCart();
   const { products, categories, notifications, supportMessages } = useStore();
@@ -183,9 +186,20 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, currentRoute }) => {
                     <X className="w-3.5 h-3.5" />
                   </button>
                 )}
+                {onOpenVoiceAssistant && (
+                  <button
+                    type="button"
+                    onClick={onOpenVoiceAssistant}
+                    className="flex items-center gap-1 bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold px-3 py-1.5 rounded-full transition-all shadow-xs cursor-pointer active:scale-95 group"
+                    title="Speak with TrendPro Voice AI"
+                  >
+                    <Mic className="w-3.5 h-3.5 text-amber-300 animate-pulse group-hover:scale-110 transition-transform" />
+                    <span className="hidden sm:inline">Ask AI</span>
+                  </button>
+                )}
                 <button
                   type="submit"
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-1.5 rounded-full transition-all shadow-xs cursor-pointer active:scale-95"
+                  className="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3.5 py-1.5 rounded-full transition-all shadow-xs cursor-pointer active:scale-95"
                 >
                   Search
                 </button>
@@ -321,9 +335,29 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, currentRoute }) => {
             )}
           </div>
 
-          {/* Action Navigation: Compare, Wishlist, Notifications, Cart, Account */}
+          {/* Action Navigation: TrendPro Voice AI, Compare, Wishlist, Notifications, Cart, Account */}
           <div className="flex items-center space-x-1 sm:space-x-3">
             
+            {/* TrendPro Voice AI Shortcut Button */}
+            {onOpenVoiceAssistant && (
+              <button
+                onClick={onOpenVoiceAssistant}
+                className="relative flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-indigo-50 to-violet-50 hover:from-indigo-100 hover:to-violet-100 text-indigo-700 border border-indigo-200/80 transition-all shadow-2xs group cursor-pointer"
+                title="Talk to TrendPro Voice AI Shopping Assistant"
+              >
+                <div className="relative">
+                  <Mic className="w-4 h-4 text-indigo-600 group-hover:scale-110 transition-transform" />
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
+                </div>
+                <span className="text-xs font-black tracking-tight hidden lg:inline">
+                  Voice AI
+                </span>
+                <span className="text-[10px] bg-amber-400 text-slate-950 font-extrabold px-1 py-0.2 rounded-sm hidden xl:inline">
+                  LIVE
+                </span>
+              </button>
+            )}
+
             {/* Compare Shortcut */}
             <button
               onClick={() => onNavigate('compare')}
@@ -592,6 +626,29 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, currentRoute }) => {
             </div>
 
             <div className="py-4 space-y-3 flex-1 overflow-y-auto">
+              {onOpenVoiceAssistant && (
+                <button
+                  onClick={() => {
+                    setShowMobileNav(false);
+                    onOpenVoiceAssistant();
+                  }}
+                  className="w-full mb-3 p-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-sm flex items-center justify-between shadow-md"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
+                      <Mic className="w-4 h-4 text-amber-300 animate-pulse" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs font-black">TrendPro Voice AI</p>
+                      <p className="text-[10px] text-indigo-200">Hindi • English • Hinglish</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] bg-amber-400 text-slate-950 font-black px-2 py-0.5 rounded-full">
+                    TALK NOW
+                  </span>
+                </button>
+              )}
+
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Categories</p>
               <button
                 onClick={() => {

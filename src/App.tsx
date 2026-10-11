@@ -6,6 +6,8 @@ import { StoreProvider } from './context/StoreContext';
 import { AnnouncementBar } from './components/common/AnnouncementBar';
 import { Header } from './components/common/Header';
 import { Footer } from './components/common/Footer';
+import { VoiceAssistantModal } from './components/common/VoiceAssistantModal';
+import { Mic, Sparkles } from 'lucide-react';
 
 // Pages
 import { HomePage } from './pages/HomePage';
@@ -215,6 +217,7 @@ export function AppContent() {
   const [currentRoute, setCurrentRoute] = useState<string>(initial.route);
   const [routeParams, setRouteParams] = useState<Record<string, any>>(initial.params);
   const [showNotifBanner, setShowNotifBanner] = useState(false);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
   // Synchronize browser history and handle Back / Forward navigation
   useEffect(() => {
@@ -390,11 +393,49 @@ export function AppContent() {
         </div>
       )}
 
-      <Header onNavigate={navigate} currentRoute={currentRoute} />
+      <Header
+        onNavigate={navigate}
+        currentRoute={currentRoute}
+        onOpenVoiceAssistant={() => setIsVoiceModalOpen(true)}
+      />
       
       <main className="flex-1">
         {renderPage()}
       </main>
+
+      {/* Floating Futuristic Voice AI Orb Action Button */}
+      <aside aria-label="Voice shopping assistant" className="fixed bottom-6 right-6 z-40">
+        <button
+          onClick={() => setIsVoiceModalOpen(true)}
+          className="group relative flex items-center gap-2.5 px-4 py-3.5 rounded-full bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 text-white shadow-xl shadow-indigo-600/30 hover:shadow-2xl hover:shadow-indigo-600/50 hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 cursor-pointer"
+          title="Open TrendPro Voice AI Shopping Assistant"
+        >
+          {/* Animated Glow Rings */}
+          <span className="absolute -inset-0.5 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 opacity-60 blur-xs group-hover:opacity-100 transition-opacity" />
+          
+          <div className="relative flex items-center justify-center w-8 h-8 rounded-full bg-white/20 backdrop-blur-xs">
+            <Mic className="w-4 h-4 text-amber-300 animate-pulse group-hover:scale-110 transition-transform" />
+            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full animate-ping" />
+          </div>
+
+          <div className="relative flex flex-col text-left">
+            <span className="text-xs font-black tracking-tight leading-tight flex items-center gap-1">
+              <span>TrendPro Voice</span>
+              <Sparkles className="w-3 h-3 text-amber-300" />
+            </span>
+            <span className="text-[10px] text-indigo-100 font-medium">
+              Tap or say &ldquo;Hi TrendPro&rdquo;
+            </span>
+          </div>
+        </button>
+      </aside>
+
+      {/* Real-time Conversational Voice AI Assistant Modal */}
+      <VoiceAssistantModal
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+        onNavigate={navigate}
+      />
 
       <Footer onNavigate={navigate} />
     </div>

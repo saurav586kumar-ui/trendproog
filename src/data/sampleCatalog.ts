@@ -670,6 +670,94 @@ export const SAMPLE_PRODUCTS: Product[] = [
     deliveryDays: 2,
     returnPolicyDays: 7,
     createdAt: '2026-03-12T00:00:00.000Z'
+  },
+  {
+    id: 'tp-aud-02',
+    sku: 'TP-AUD-BASS50',
+    name: 'BassPro Extra Deep Bass Wired In-Ear Earphones with HD Mic',
+    slug: 'basspro-extra-deep-bass-wired-earphones',
+    brand: 'AcousticPro',
+    category: 'electronics',
+    subCategory: 'Audio & Headphones',
+    description: 'High-definition 10mm neodymium sound drivers delivering powerful thumping bass, crisp highs, inline volume controls, noise-isolating silicone tips, and tangle-free braided 3.5mm audio cable.',
+    highlights: [
+      '10mm Neodymium dynamic drivers with punchy bass',
+      'Built-in HD microphone for crystal-clear calling',
+      'Tangle-free durable braided cable & gold-plated 3.5mm jack',
+      'Ergonomic angled fit with passive noise isolation'
+    ],
+    mainImage: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&q=80',
+    images: [
+      'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&q=80',
+      'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&q=80'
+    ],
+    originalPrice: 1499,
+    sellingPrice: 699,
+    discountPercent: 53,
+    stock: 75,
+    rating: 4.6,
+    ratingCount: 1980,
+    isActive: true,
+    isFeatured: true,
+    isTrending: true,
+    variants: [
+      { type: 'color', options: ['Carbon Black', 'Metallic Silver', 'Ruby Red'] }
+    ],
+    specs: {
+      'Driver Size': '10mm Dynamic',
+      'Frequency Response': '20Hz - 20kHz',
+      'Cable Length': '1.2 meters braided',
+      'Connector': '3.5mm Gold-Plated Audio Jack'
+    },
+    inTheBox: 'Earphones, 3 Pairs Silicone Ear Tips (S/M/L), Cable Clip, Warranty Card',
+    warranty: '1 Year Brand Replacement Warranty',
+    deliveryDays: 2,
+    returnPolicyDays: 7,
+    createdAt: '2026-03-13T00:00:00.000Z'
+  },
+  {
+    id: 'tp-aud-03',
+    sku: 'TP-AUD-WAVE100',
+    name: 'WaveBuds Neo True Wireless Earbuds with ENC & 30hr Playtime',
+    slug: 'wavebuds-neo-true-wireless-earbuds',
+    brand: 'AcousticPro',
+    category: 'electronics',
+    subCategory: 'Audio & Headphones',
+    description: 'Pocket-sized true wireless earbuds with Environmental Noise Cancellation (ENC) for clear calls, ultra-low 50ms gaming latency, IPX5 splash resistance, and up to 30 hours total battery life with Type-C fast charging.',
+    highlights: [
+      'Quad-mic Environmental Noise Cancellation (ENC)',
+      '30-Hour total battery life with fast charge (10 min = 90 min)',
+      '13mm Titanium drivers with custom bass boost EQ',
+      'IPX5 sweat and water resistance for workouts'
+    ],
+    mainImage: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&q=80',
+    images: [
+      'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&q=80',
+      'https://images.unsplash.com/photo-1572536147248-ac59a8abfa4b?w=800&q=80'
+    ],
+    originalPrice: 3499,
+    sellingPrice: 1599,
+    discountPercent: 54,
+    stock: 58,
+    rating: 4.7,
+    ratingCount: 2450,
+    isActive: true,
+    isFeatured: true,
+    isTrending: true,
+    variants: [
+      { type: 'color', options: ['Matte Black', 'Glacier White', 'Cobalt Blue'] }
+    ],
+    specs: {
+      'Driver Size': '13mm Titanium Coated',
+      'Bluetooth': '5.3 with Instant Auto-Pair',
+      'Battery': '30 Hours total (6h buds + 24h case)',
+      'Waterproof': 'IPX5 Sweat-Proof'
+    },
+    inTheBox: 'Pair of WaveBuds, Compact Charging Case, Type-C Cable, 3 Pairs Ear Tips, User Manual',
+    warranty: '1 Year Comprehensive Brand Warranty',
+    deliveryDays: 2,
+    returnPolicyDays: 7,
+    createdAt: '2026-03-14T00:00:00.000Z'
   }
 ];
 
