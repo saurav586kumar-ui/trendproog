@@ -254,21 +254,48 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
           }),
         });
 
-        const responseText = await response.text();
-        let data: any;
+        let data: any = null;
         try {
+          const responseText = await response.text();
           data = JSON.parse(responseText);
         } catch {
-          console.error('Non-JSON response from /api/voice/assistant:', responseText.slice(0, 200));
-          throw new Error(
-            response.ok
-              ? 'Invalid server response format'
-              : `Server error (${response.status}): ${response.statusText || 'Endpoint unavailable'}`
-          );
+          data = null;
         }
 
-        if (!response.ok) {
-          throw new Error(data?.error || `Server responded with ${response.status}`);
+        // If server response was not successful or returned non-JSON, resolve locally from loaded catalog
+        if (!response.ok || !data || !data.replyText) {
+          const q = trimmed.toLowerCase();
+          const budgetMatch = q.match(/(?:under|below|ke andar|se kam|<)\s*(?:₹|rs\.?|inr)?\s*([0-9,]+)/i);
+          const maxBudget = budgetMatch ? parseInt(budgetMatch[1].replace(/,/g, ''), 10) : null;
+
+          let matched = products.filter((p) => {
+            if (maxBudget !== null && p.sellingPrice > maxBudget) return false;
+            const words = q.split(' ').filter((w) => w.length > 2);
+            return words.some(
+              (w) =>
+                p.name.toLowerCase().includes(w) ||
+                p.category.toLowerCase().includes(w) ||
+                p.brand.toLowerCase().includes(w)
+            );
+          });
+
+          if (matched.length === 0 && maxBudget !== null) {
+            matched = products.filter((p) => p.sellingPrice <= maxBudget);
+          }
+          if (matched.length === 0) {
+            matched = products.slice(0, 3);
+          }
+
+          const top = matched.slice(0, 3);
+          data = {
+            replyText:
+              top.length > 0
+                ? `Mujhe aapke liye live catalog se ye products mile hain, jaise "${top[0].name}" ₹${top[0].sellingPrice.toLocaleString('en-IN')} mein.`
+                : 'Namaste! Main TrendPro voice assistant hoon. Aap headphones, shoes, electronics ya order tracking pooch sakte hain.',
+            matchingProductIds: top.map((p) => p.id),
+            action: { type: 'none' },
+            audioBase64: null,
+          };
         }
 
         const replyText = data.replyText || 'TrendPro store mein aapka swagat hai!';

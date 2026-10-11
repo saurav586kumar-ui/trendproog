@@ -1,23 +1,24 @@
-import express from 'express';
+import { Router, Request, Response } from 'express';
 import { GoogleGenAI } from '@google/genai';
 
-export const apiRouter = express();
+export const apiRouter = Router();
 
-apiRouter.use(express.json({ limit: '10mb' }));
-
-// Initialize shared server-side Google GenAI client
-const apiKey = process.env.GEMINI_API_KEY || '';
-const ai = new GoogleGenAI({
-  apiKey,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
+// Lazy or safe initialization of Google GenAI client
+function getGenAIClient(): GoogleGenAI | null {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  return new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
     },
-  },
-});
+  });
+}
 
 // API: Health check
-apiRouter.get('/api/health', (_req, res) => {
+apiRouter.get('/api/health', (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
     service: 'TrendPro Marketplace Backend with Voice AI Assistant',
@@ -27,11 +28,12 @@ apiRouter.get('/api/health', (_req, res) => {
 });
 
 // API: Payment Gateway Adapter Verification Endpoint (Server-Side)
-apiRouter.post('/api/payment/verify', (req, res) => {
-  const { orderId, amount } = req.body;
+apiRouter.post('/api/payment/verify', (req: Request, res: Response) => {
+  const { orderId, amount } = req.body || {};
 
   if (!orderId || !amount) {
-    return res.status(400).json({ error: 'Missing required order details' });
+    res.status(400).json({ error: 'Missing required order details' });
+    return;
   }
 
   res.json({
@@ -44,13 +46,6 @@ apiRouter.post('/api/payment/verify', (req, res) => {
   });
 });
 
-/**
- * TRENDPRO REAL-TIME VOICE AI CONVERSATIONAL PIPELINE
- * 
- * Supports Hindi, English, and natural Hinglish.
- * Connects directly to verified product catalog items and approved shopping actions.
- * Never invents fake products, discounts, prices, ratings, or inventory.
- */
 interface CatalogSummaryItem {
   id: string;
   name: string;
@@ -63,22 +58,247 @@ interface CatalogSummaryItem {
   stock: number;
   rating: number;
   ratingCount: number;
-  highlights: string[];
+  highlights?: string[];
   mainImage: string;
 }
 
-apiRouter.post('/api/voice/assistant', async (req, res) => {
+/**
+ * Intelligent Catalog Fallback Matcher:
+ * Ensures TrendPro Voice Assistant always answers questions, shows verified products,
+ * respects budget/categories, and triggers shopping actions even if GEMINI_API_KEY is not set or network issues arise.
+ */
+function runCatalogFallback(
+  query: string,
+  catalog: CatalogSummaryItem[]
+): {
+  replyText: string;
+  matchingProductIds: string[];
+  action: { type: string; productId?: string; route?: string; category?: string; message?: string };
+  detectedLanguage: 'en' | 'hi' | 'hinglish';
+} {
+  const q = query.toLowerCase().trim();
+
+  // Detect language hint
+  const isHindiOrHinglish =
+    /kya|dikhao|chahiye|mujhe|kaise|kitna|sasta|achha|acche|hai|karo|batao|kaun|kaunsa|namaste|shukriya|dhanyawad|daalo|karein/i.test(
+      q
+    );
+  const detectedLanguage: 'en' | 'hi' | 'hinglish' = isHindiOrHinglish ? 'hinglish' : 'en';
+
+  // Extract budget if mentioned (e.g., "under 1000", "under ₹2,000", "2000 ke andar", "< 1500")
+  let maxBudget: number | null = null;
+  const budgetMatch =
+    q.match(/(?:under|below|less than|ke andar|se kam|<|upto)\s*(?:₹|rs\.?|inr)?\s*([0-9,]+)/i) ||
+    q.match(/([0-9,]+)\s*(?:rupees|rs|₹)?\s*(?:ke andar|se kam)/i);
+  if (budgetMatch && budgetMatch[1]) {
+    const parsed = parseInt(budgetMatch[1].replace(/,/g, ''), 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      maxBudget = parsed;
+    }
+  }
+
+  // Check actions: Cart
+  if (/(?:add to cart|cart mein|cart me|daal do|add kar)/i.test(q)) {
+    // Find if a specific product or category was mentioned
+    const matched = catalog.find((p) => {
+      const nameParts = p.name.toLowerCase().split(' ');
+      return nameParts.some((part) => part.length > 3 && q.includes(part));
+    });
+    if (matched) {
+      return {
+        replyText: isHindiOrHinglish
+          ? `Bilkul! Main "${matched.name}" ko aapke cart mein add kar raha hoon.`
+          : `Sure! I have added "${matched.name}" to your shopping cart.`,
+        matchingProductIds: [matched.id],
+        action: { type: 'add_to_cart', productId: matched.id, message: `Added ${matched.name} to cart` },
+        detectedLanguage,
+      };
+    }
+  }
+
+  // Check actions: Navigation
+  if (/(?:open cart|show cart|view cart|mera cart)/i.test(q)) {
+    return {
+      replyText: isHindiOrHinglish ? 'Aapka shopping cart open kar raha hoon.' : 'Opening your shopping cart.',
+      matchingProductIds: [],
+      action: { type: 'navigate', route: 'cart' },
+      detectedLanguage,
+    };
+  }
+  if (/(?:checkout|pay now|order place|proceed)/i.test(q)) {
+    return {
+      replyText: isHindiOrHinglish
+        ? 'Checkout screen par navigate kar rahe hain jahan aap payment confirm kar sakte hain.'
+        : 'Navigating to the checkout screen so you can confirm payment safely.',
+      matchingProductIds: [],
+      action: { type: 'navigate', route: 'checkout' },
+      detectedLanguage,
+    };
+  }
+  if (/(?:wishlist|saved items|pasandida)/i.test(q)) {
+    return {
+      replyText: isHindiOrHinglish ? 'Aapki wishlist open kar raha hoon.' : 'Opening your wishlist.',
+      matchingProductIds: [],
+      action: { type: 'navigate', route: 'wishlist' },
+      detectedLanguage,
+    };
+  }
+  if (/(?:compare|tulna)/i.test(q)) {
+    return {
+      replyText: isHindiOrHinglish
+        ? 'Product comparison screen open kar raha hoon.'
+        : 'Opening the product comparison view.',
+      matchingProductIds: [],
+      action: { type: 'navigate', route: 'compare' },
+      detectedLanguage,
+    };
+  }
+
+  // Category filtering keywords
+  const categoryKeywords: Record<string, string> = {
+    audio: 'electronics',
+    headphone: 'electronics',
+    earphone: 'electronics',
+    earbuds: 'electronics',
+    phone: 'electronics',
+    mobile: 'electronics',
+    laptop: 'electronics',
+    electronics: 'electronics',
+    shoes: 'fashion',
+    shirt: 'fashion',
+    tshirt: 'fashion',
+    clothing: 'fashion',
+    fashion: 'fashion',
+    kitchen: 'home-kitchen',
+    home: 'home-kitchen',
+    beauty: 'beauty',
+    skincare: 'beauty',
+    perfume: 'beauty',
+    grocery: 'grocery',
+    snack: 'grocery',
+  };
+
+  let targetCategory: string | null = null;
+  for (const [kw, cat] of Object.entries(categoryKeywords)) {
+    if (q.includes(kw)) {
+      targetCategory = cat;
+      break;
+    }
+  }
+
+  // Filter products by query keywords & budget
+  let filtered = catalog.filter((p) => {
+    // Budget check
+    if (maxBudget !== null && p.sellingPrice > maxBudget) {
+      return false;
+    }
+    // Category check
+    if (targetCategory && p.category !== targetCategory && !p.name.toLowerCase().includes(targetCategory)) {
+      // allow if name matches any word in query
+      const words = q.split(' ').filter((w) => w.length > 2);
+      const matchesWord = words.some((w) => p.name.toLowerCase().includes(w) || p.brand.toLowerCase().includes(w));
+      if (!matchesWord) return false;
+    }
+    // Keyword match
+    const words = q.split(' ').filter((w) => w.length > 2);
+    if (words.length > 0) {
+      const match = words.some(
+        (w) =>
+          p.name.toLowerCase().includes(w) ||
+          p.category.toLowerCase().includes(w) ||
+          p.brand.toLowerCase().includes(w) ||
+          (p.subCategory && p.subCategory.toLowerCase().includes(w))
+      );
+      return match;
+    }
+    return true;
+  });
+
+  // If filtered is empty and we had a budget, search solely by budget
+  if (filtered.length === 0 && maxBudget !== null) {
+    filtered = catalog.filter((p) => p.sellingPrice <= maxBudget);
+  }
+
+  // If still empty or query was generic greeting / trending
+  if (filtered.length === 0) {
+    if (/(?:trend|popular|best|top|special)/i.test(q)) {
+      filtered = [...catalog].sort((a, b) => b.rating - a.rating).slice(0, 4);
+    } else {
+      filtered = catalog.slice(0, 4);
+    }
+  }
+
+  const topMatches = filtered.slice(0, 4);
+  const matchingProductIds = topMatches.map((p) => p.id);
+
+  let replyText = '';
+  if (maxBudget !== null) {
+    if (topMatches.length > 0) {
+      const p = topMatches[0];
+      if (isHindiOrHinglish) {
+        replyText = `Ye rahe ₹${maxBudget} ke andar ke options, jaise "${p.name}" sirf ₹${p.sellingPrice.toLocaleString('en-IN')} mein.`;
+      } else {
+        replyText = `Here are great choices under ₹${maxBudget.toLocaleString('en-IN')}, including "${p.name}" for ₹${p.sellingPrice.toLocaleString('en-IN')}.`;
+      }
+    } else {
+      replyText = isHindiOrHinglish
+        ? `Is budget (₹${maxBudget}) mein abhi items available nahi hain, kripya thoda budget adjust karein.`
+        : `No items found currently under ₹${maxBudget}. Would you like to see our nearest in-stock alternatives?`;
+    }
+  } else if (/(?:hi|hello|hey|namaste|pranam)/i.test(q)) {
+    if (isHindiOrHinglish) {
+      replyText = 'Namaste! Main TrendPro voice assistant hoon. Aaj aap kya dhoondh rahe hain? Headphones, shoes, ya koi specific brand?';
+    } else {
+      replyText = 'Hello! I am TrendPro, your Voice AI shopping assistant. What are you looking to buy today?';
+    }
+  } else if (topMatches.length > 0) {
+    const p = topMatches[0];
+    if (isHindiOrHinglish) {
+      replyText = `Mujhe aapke liye ye products mile hain, jaise "${p.name}" ₹${p.sellingPrice.toLocaleString('en-IN')} mein.`;
+    } else {
+      replyText = `Here are top matching products from our store, including "${p.name}" for ₹${p.sellingPrice.toLocaleString('en-IN')}.`;
+    }
+  } else {
+    replyText = isHindiOrHinglish
+      ? 'Aap TrendPro par electronics, fashion, home decor, aur beauty products dhoondh sakte hain. Aapko kya chahiye?'
+      : 'You can explore our top electronics, fashion, home essentials, and gadgets. What would you like to see?';
+  }
+
+  return {
+    replyText,
+    matchingProductIds,
+    action: topMatches.length > 0 ? { type: 'none' } : { type: 'none' },
+    detectedLanguage,
+  };
+}
+
+/**
+ * TRENDPRO REAL-TIME VOICE AI CONVERSATIONAL PIPELINE
+ */
+apiRouter.post('/api/voice/assistant', async (req: Request, res: Response) => {
   try {
-    const { message, conversationHistory = [], catalog = [] } = req.body;
+    const { message, conversationHistory = [], catalog = [] } = req.body || {};
 
     if (!message || typeof message !== 'string') {
-      return res.status(400).json({ error: 'Valid user speech or message is required' });
+      res.status(400).json({ error: 'Valid user speech or message is required' });
+      return;
     }
 
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({
-        error: 'GEMINI_API_KEY is not configured on the server. Please attach an API key in the AI Studio Settings > Secrets panel.',
+    const ai = getGenAIClient();
+
+    // If Gemini API is not configured or unavailable, use intelligent fallback
+    if (!ai) {
+      const fallbackResult = runCatalogFallback(message, catalog);
+      res.json({
+        success: true,
+        replyText: fallbackResult.replyText,
+        audioBase64: null,
+        audioMimeType: 'audio/wav',
+        matchingProductIds: fallbackResult.matchingProductIds,
+        action: fallbackResult.action,
+        detectedLanguage: fallbackResult.detectedLanguage,
       });
+      return;
     }
 
     // Build compact catalog reference for grounding (up to 40 items)
@@ -130,7 +350,7 @@ OUTPUT FORMAT:
 Respond ONLY with a JSON object adhering to this schema:
 {
   "replyText": "Spoken text that TrendPro will speak aloud and display to the customer",
-  "matchingProductIds": ["id1", "id2"], // Exact IDs of catalog products matching user query (max 4)
+  "matchingProductIds": ["id1", "id2"],
   "action": {
     "type": "none" | "view_product" | "add_to_cart" | "add_to_wishlist" | "navigate" | "filter_category",
     "productId": "optional id",
@@ -154,41 +374,50 @@ Respond ONLY with a JSON object adhering to this schema:
     }
     contents.push({ role: 'user', parts: [{ text: message }] });
 
-    // 1. Generate Conversational & Action JSON using gemini-3.8-flash
-    const chatResponse = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents,
-      config: {
-        systemInstruction: systemPrompt,
-        responseMimeType: 'application/json',
-      },
-    });
-
-    let assistantData: any = {
-      replyText: 'Namaste! Main TrendPro voice assistant hoon. Aap aaj kya dhoondh rahe hain?',
-      matchingProductIds: [],
-      action: { type: 'none' },
-      detectedLanguage: 'hinglish',
-    };
+    let assistantData: any = null;
 
     try {
+      // 1. Generate Conversational & Action JSON using gemini-3.8-flash
+      const chatResponse = await ai.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents,
+        config: {
+          systemInstruction: systemPrompt,
+          responseMimeType: 'application/json',
+        },
+      });
+
       if (chatResponse.text) {
         assistantData = JSON.parse(chatResponse.text.trim());
       }
-    } catch {
-      // Fallback text parse
-      assistantData.replyText = chatResponse.text || 'TrendPro is here to help you shop.';
+    } catch (genErr) {
+      console.warn('Gemini chat generateContent error, falling back to local catalog parser:', genErr);
+      const fallbackResult = runCatalogFallback(message, catalog);
+      assistantData = {
+        replyText: fallbackResult.replyText,
+        matchingProductIds: fallbackResult.matchingProductIds,
+        action: fallbackResult.action,
+        detectedLanguage: fallbackResult.detectedLanguage,
+      };
+    }
+
+    if (!assistantData) {
+      const fallbackResult = runCatalogFallback(message, catalog);
+      assistantData = {
+        replyText: fallbackResult.replyText,
+        matchingProductIds: fallbackResult.matchingProductIds,
+        action: fallbackResult.action,
+        detectedLanguage: fallbackResult.detectedLanguage,
+      };
     }
 
     const replyText = assistantData.replyText || 'TrendPro store mein aapka swagat hai!';
 
-    // 2. High-Fidelity Speech Generation using gemini-3.8-flash-lite-tts
-    // We synthesize the spoken response to provide low-latency audio for the browser.
+    // 2. Speech Synthesis using gemini-3.8-flash-lite-tts
     let audioBase64: string | null = null;
     let audioMimeType = 'audio/wav';
 
     try {
-      // Generate clean spoken text (strip any stray markdown or symbols)
       const cleanSpoken = replyText
         .replace(/[*_#`~]/g, '')
         .replace(/₹/g, 'Rupees ')
@@ -218,8 +447,8 @@ Respond ONLY with a JSON object adhering to this schema:
         audioMimeType = audioPart.mimeType || 'audio/wav';
       }
     } catch (ttsErr: any) {
-      console.warn('TTS generation fallback:', ttsErr?.message || ttsErr);
-      // Client browser Web Speech API speech synthesis will act as seamless fallback
+      // Browser Web Speech API will synthesize audio smoothly if server TTS is omitted
+      console.warn('TTS generation fallback to client Web Speech API:', ttsErr?.message || ttsErr);
     }
 
     res.json({
@@ -233,30 +462,41 @@ Respond ONLY with a JSON object adhering to this schema:
     });
   } catch (error: any) {
     console.error('TrendPro Voice Assistant Error:', error);
-    res.status(500).json({
-      error: error.message || 'Internal error in voice assistant pipeline',
-      replyText: 'Maaf kijiye, temporary connection issue hai. Kripya dobara try karein.',
+    // Graceful response so UI stays smooth
+    const fallbackResult = runCatalogFallback(req.body?.message || '', req.body?.catalog || []);
+    res.json({
+      success: true,
+      replyText: fallbackResult.replyText,
+      audioBase64: null,
+      audioMimeType: 'audio/wav',
+      matchingProductIds: fallbackResult.matchingProductIds,
+      action: fallbackResult.action,
+      detectedLanguage: fallbackResult.detectedLanguage,
     });
   }
 });
 
 // API: Audio Transcription Endpoint (via Gemini)
-apiRouter.post('/api/voice/transcribe', async (req, res) => {
+apiRouter.post('/api/voice/transcribe', async (req: Request, res: Response) => {
   try {
-    const { audioBase64, mimeType = 'audio/webm' } = req.body;
+    const { audioBase64, mimeType = 'audio/webm' } = req.body || {};
 
     if (!audioBase64) {
-      return res.status(400).json({ error: 'Audio data is required' });
+      res.status(400).json({ error: 'Audio data is required' });
+      return;
     }
 
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ error: 'GEMINI_API_KEY is missing' });
+    const ai = getGenAIClient();
+    if (!ai) {
+      res.status(500).json({ error: 'GEMINI_API_KEY is missing' });
+      return;
     }
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.5-transcribe',
+      model: 'gemini-3.8-flash',
       contents: [
         {
+          role: 'user',
           parts: [
             {
               inlineData: {
