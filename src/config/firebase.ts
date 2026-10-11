@@ -52,8 +52,8 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path,
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  console.warn('Firestore Operation Notice:', JSON.stringify(errInfo));
+  return errInfo;
 }
 
 /**
@@ -84,10 +84,10 @@ export function sanitizeForFirestore<T>(data: T): T {
   return result as T;
 }
 
-// Initial connection test conforming to skill requirements
+// Non-blocking background connection test conforming to skill requirements
 export async function testConnection() {
   try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
+    await getDocFromServer(doc(db, 'storeSettings', 'companyConfig'));
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
       console.warn('Firebase client is offline or initializing connection.');
@@ -95,4 +95,9 @@ export async function testConnection() {
   }
 }
 
-testConnection();
+// Perform background connection check without blocking React hydration
+if (typeof window !== 'undefined') {
+  setTimeout(() => {
+    testConnection().catch(() => {});
+  }, 1000);
+}

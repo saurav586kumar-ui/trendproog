@@ -21,7 +21,7 @@ interface HomePageProps {
 }
 
 export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
-  const { products, categories, banners, seedInitialDataToFirestore, trendingConfig } = useStore();
+  const { products, categories, banners, seedInitialDataToFirestore, trendingConfig, isFirebaseSyncing } = useStore();
   const { isAdmin } = useAuth();
   const [seeded, setSeeded] = useState(false);
 
@@ -39,8 +39,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
       }
       if (result.length > 0) return result;
     }
-    // Fallback: only products with explicit isTrending flag set by owner
-    return products.filter((p) => p.isTrending && p.isActive).slice(0, 8);
+    // Fallback: only products with explicit isTrending flag set by owner, or top active products
+    const trending = products.filter((p) => p.isTrending && p.isActive);
+    if (trending.length > 0) return trending.slice(0, 8);
+    return products.filter((p) => p.isActive).slice(0, 8);
   }, [products, trendingConfig]);
 
   // Multiple category support for homepage section listings
@@ -148,6 +150,17 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
             {trendingProducts.map((product) => (
               <ProductCard key={product.id} product={product} onNavigate={onNavigate} />
+            ))}
+          </div>
+        ) : isFirebaseSyncing ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 animate-pulse">
+            {[1, 2, 3, 4].map((n) => (
+              <div key={n} className="bg-white rounded-2xl p-4 border border-slate-200/80 space-y-3">
+                <div className="aspect-square bg-slate-200 rounded-xl w-full" />
+                <div className="h-4 bg-slate-200 rounded w-3/4" />
+                <div className="h-3 bg-slate-200 rounded w-1/2" />
+                <div className="h-6 bg-slate-200 rounded w-1/3" />
+              </div>
             ))}
           </div>
         ) : (

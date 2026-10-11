@@ -54,7 +54,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ) || userProfile?.role === 'admin';
 
   useEffect(() => {
+    // Non-blocking timeout for initial auth check: allow visitors to browse immediately
+    const authTimeout = setTimeout(() => {
+      setLoading(false);
+    }, 1500);
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      clearTimeout(authTimeout);
       setCurrentUser(user);
       if (user) {
         const userDocRef = doc(db, 'users', user.uid);

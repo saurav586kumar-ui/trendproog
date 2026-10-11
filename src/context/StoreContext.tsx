@@ -71,6 +71,8 @@ interface StoreContextType {
   storeConfig: StoreConfig;
   trendingConfig: TrendingConfig | null;
   loading: boolean;
+  isFirebaseSyncing: boolean;
+  firebaseConnected: boolean | null;
   seedInitialDataToFirestore: () => Promise<void>;
   createOrder: (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'timeline' | 'customerId'>) => Promise<string>;
   updateOrderStatus: (orderId: string, status: Order['orderStatus'], note?: string) => Promise<void>;
@@ -119,7 +121,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [announcementConfig, setAnnouncementConfig] = useState<StoreAnnouncementConfig>(DEFAULT_ANNOUNCEMENT);
   const [storeConfig, setStoreConfig] = useState<StoreConfig>(DEFAULT_STORE_CONFIG);
   const [trendingConfig, setTrendingConfig] = useState<TrendingConfig | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [isFirebaseSyncing, setIsFirebaseSyncing] = useState(true);
+  const [firebaseConnected, setFirebaseConnected] = useState<boolean | null>(null);
 
   // Sync store company config & announcement config
   useEffect(() => {
@@ -138,11 +142,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => unsubStoreConfig();
   }, []);
 
-  // Fetch or listen to Products from Firestore
+  // Fetch or listen to Products from Firestore asynchronously without blocking initial render
   useEffect(() => {
+    // Non-blocking timeout: ensure background sync indicator clears within 2 seconds
+    const syncTimeout = setTimeout(() => {
+      setLoading(false);
+      setIsFirebaseSyncing(false);
+    }, 2000);
+
     const unsubProducts = onSnapshot(
       collection(db, 'products'),
       (snapshot) => {
+        clearTimeout(syncTimeout);
         if (!snapshot.empty) {
           const remoteProducts = snapshot.docs.map((d) => ({
             id: d.id,
@@ -153,10 +164,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setProducts(SAMPLE_PRODUCTS);
         }
         setLoading(false);
+        setIsFirebaseSyncing(false);
+        setFirebaseConnected(true);
       },
-      () => {
+      (error) => {
+        clearTimeout(syncTimeout);
+        console.warn('Firestore Products sync notice (using local catalog):', error);
         setProducts(SAMPLE_PRODUCTS);
         setLoading(false);
+        setIsFirebaseSyncing(false);
+        setFirebaseConnected(false);
       }
     );
 
@@ -1657,6 +1674,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         announcementConfig,
         storeConfig,
         loading,
+        isFirebaseSyncing,
+        firebaseConnected,
         seedInitialDataToFirestore,
         createOrder,
         updateOrderStatus,
