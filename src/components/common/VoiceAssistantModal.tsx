@@ -254,12 +254,23 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
           }),
         });
 
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.error || `Server responded with ${response.status}`);
+        const responseText = await response.text();
+        let data: any;
+        try {
+          data = JSON.parse(responseText);
+        } catch {
+          console.error('Non-JSON response from /api/voice/assistant:', responseText.slice(0, 200));
+          throw new Error(
+            response.ok
+              ? 'Invalid server response format'
+              : `Server error (${response.status}): ${response.statusText || 'Endpoint unavailable'}`
+          );
         }
 
-        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data?.error || `Server responded with ${response.status}`);
+        }
+
         const replyText = data.replyText || 'TrendPro store mein aapka swagat hai!';
         const matchingIds: string[] = data.matchingProductIds || [];
         const action = data.action || { type: 'none' };
