@@ -108,6 +108,24 @@
       },
       "required": ["id", "conversationId", "customerUid", "ownerUid"]
     },
+    "SupportMessage": {
+      "title": "SupportMessage",
+      "description": "Direct message between customer and store owner",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "conversationId": { "type": "string" },
+        "userId": { "type": "string" },
+        "customerUid": { "type": "string" },
+        "senderId": { "type": "string" },
+        "recipientId": { "type": "string" },
+        "senderRole": { "type": "string" },
+        "sender": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "senderRole", "createdAt"]
+    },
     "RestockSubscription": {
       "title": "RestockSubscription",
       "description": "Customer notification alert subscription for out of stock products",
@@ -151,6 +169,10 @@
     "/chats/{chatId}": {
       "schema": "Chat",
       "description": "Customer-to-owner support chat conversations"
+    },
+    "/supportMessages/{messageId}": {
+      "schema": "SupportMessage",
+      "description": "Support chat messages exchanged between customer and owner"
     },
     "/restockSubscriptions/{subId}": {
       "schema": "RestockSubscription",

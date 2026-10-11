@@ -7,6 +7,7 @@ import { AnnouncementBar } from './components/common/AnnouncementBar';
 import { Header } from './components/common/Header';
 import { Footer } from './components/common/Footer';
 import { VoiceAssistantModal } from './components/common/VoiceAssistantModal';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { Mic, Sparkles } from 'lucide-react';
 
 // Pages
@@ -400,7 +401,9 @@ export function AppContent() {
       />
       
       <main className="flex-1">
-        {renderPage()}
+        <ErrorBoundary>
+          {renderPage()}
+        </ErrorBoundary>
       </main>
 
       {/* Floating Futuristic Voice AI Orb Action Button */}
